@@ -1,6 +1,6 @@
-# VisualDeadline Agent
+# wayline
 
-> **VisualDeadline Agent turns vague goals into visible, adaptive execution plans.**
+> **wayline turns vague goals into visible, adaptive execution plans.**
 > 把「我要做完这件事」变成一条真正可以执行、可以动态调整的时间线。
 
 An Agent-native, local-first deadline cockpit built for the **Hi Youth Hackathon (PilotDeck track)**.
