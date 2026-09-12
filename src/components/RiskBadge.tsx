@@ -1,3 +1,4 @@
+import { systemText, riskText } from "@/lib/zh";
 import { computeRisk, riskLevelOf } from "@/lib/metrics";
 import type { Project } from "@/lib/types";
 
@@ -15,12 +16,12 @@ export function RiskBadge({ project, now }: { project: Project; now: number }) {
   const cls = LEVEL_STYLE[level] ?? LEVEL_STYLE.LOW;
   return (
     <span
-      key={`${level}-${risk.score.toFixed(2)}`}
+      key={`${riskText[level]}-${risk.score.toFixed(2)}`}
       className={`vd-rise vd-num inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${cls}`}
-      title={risk.reasons.join(" · ")}
+      title={risk.reasons.map(systemText).join(" · ")}
     >
       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
-      {risk.score.toFixed(2)} {level}
+      {risk.score.toFixed(2)} {riskText[level]}
     </span>
   );
 }

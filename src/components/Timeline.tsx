@@ -1,5 +1,6 @@
 "use client";
 
+import { taskName, systemText, taskStatusText } from "@/lib/zh";
 import { useMemo, useState } from "react";
 import { useWorkspace } from "@/store/workspace";
 import { useNow } from "@/hooks/useNow";
@@ -8,13 +9,7 @@ import { formatDayShort, formatDeadline, formatHours, formatStamp } from "@/lib/
 import { parseIso } from "@/lib/time";
 import { TaskDetail } from "./TaskDetail";
 
-const STATUS_TEXT: Record<Task["status"], string> = {
-  todo: "TODO",
-  in_progress: "IN PROGRESS",
-  done: "DONE",
-  deferred: "DEFERRED",
-  cancelled: "CANCELLED",
-};
+
 
 function TaskRow({
   task,
@@ -56,7 +51,7 @@ function TaskRow({
         <div className="flex items-center gap-1.5">
           {task.isCritical && (
             <span className="vd-label shrink-0 rounded-[1px] bg-alarm px-1 py-px text-[8px] text-white">
-              CRIT
+              关键
             </span>
           )}
           <span
@@ -70,7 +65,7 @@ function TaskRow({
                     : "text-ink"
             }`}
           >
-            {task.title}
+            {taskName(task.title)}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -86,7 +81,7 @@ function TaskRow({
                     : "text-muted"
             }`}
           >
-            {STATUS_TEXT[task.status]}
+            {taskStatusText[task.status]}
           </span>
         </div>
       </div>
@@ -100,7 +95,7 @@ function TaskRow({
         <div
           className={`absolute inset-y-2 cursor-pointer rounded-[2px] border transition-[left,width] duration-500 ease-out ${barCls}`}
           style={{ left: `${left}%`, width: `${width}%` }}
-          title={`${task.title} · ${task.status} · ${fill}%`}
+          title={`${taskName(task.title)} · ${task.status} · ${fill}%`}
         >
           {task.progress > 0 && task.status !== "done" && (
             <div
@@ -111,7 +106,7 @@ function TaskRow({
         </div>
         {/* small time labels at bar ends */}
         <span className="vd-num pointer-events-none absolute -top-2 text-[8px] text-faint" style={{ left: `${left}%` }}>
-          {formatStamp(task.start).slice(0, 5)}
+          {formatDayShort(task.start)}
         </span>
       </div>
     </div>
@@ -136,11 +131,11 @@ export function Timeline({ project }: { project: Project }) {
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-line px-4 py-2">
         <div className="flex items-baseline gap-3">
-          <h2 className="vd-label">Timeline</h2>
+          <h2 className="vd-label">时间线</h2>
           <span className="vd-num text-[12px] font-bold text-ink">{formatDayShort(new Date(now).toISOString())}</span>
         </div>
         <div className="vd-num text-[12px] font-bold text-alarm">
-          NOW <span className="vd-blink">▮</span> {formatStamp(new Date(now).toISOString())}
+          现在 <span className="vd-blink">▮</span> {formatStamp(new Date(now).toISOString())}
         </div>
       </div>
 
@@ -161,7 +156,7 @@ export function Timeline({ project }: { project: Project }) {
 
           {/* milestones */}
           <div className="mt-4 border-t border-line pt-3">
-            <div className="vd-label mb-2">Milestones</div>
+            <div className="vd-label mb-2">里程碑</div>
             <div className="relative h-6 border-b border-line">
               {project.milestones.map((ms) => {
                 const pct = Math.min(100, Math.max(0, ((parseIso(ms.at) - axis.createdAt) / axis.total) * 100));
@@ -176,7 +171,7 @@ export function Timeline({ project }: { project: Project }) {
                     key={ms.id}
                     className="absolute -bottom-[7px] -translate-x-1/2"
                     style={{ left: `${pct}%` }}
-                    title={`${ms.title} · ${ms.status.toUpperCase()}`}
+                    title={`${systemText(ms.title)} · ${ms.status.toUpperCase()}`}
                   >
                     <span className={`block h-3 w-3 rotate-45 border ${dot}`} />
                   </div>
@@ -193,7 +188,7 @@ export function Timeline({ project }: { project: Project }) {
                         ms.status === "at_risk" ? "text-alarm" : ms.status === "reached" ? "text-ink" : "text-muted"
                       }`}
                     >
-                      {ms.title}
+                      {systemText(ms.title)}
                     </span>
                   </div>
                 );
@@ -207,13 +202,13 @@ export function Timeline({ project }: { project: Project }) {
             {/* NOW line */}
             <div className="absolute bottom-[-2px] top-[-90px] z-10 w-px bg-alarm" style={{ left: `${nowPct}%` }}>
               <span className="vd-num absolute -top-5 left-1 rounded-[1px] bg-alarm px-1 text-[9px] font-black text-white">
-                NOW {formatStamp(new Date(now).toISOString()).slice(0, 5)}
+                现在 {formatStamp(new Date(now).toISOString())}
               </span>
             </div>
             {/* DEADLINE */}
             <div className="absolute right-0 top-0 -translate-y-1/2 text-right">
               <div className="vd-pulse vd-num inline-block rounded-[2px] border border-alarm bg-alarm-soft px-1.5 py-0.5 text-[11px] font-black text-alarm-dark">
-                🔴 DEADLINE {formatDeadline(project.deadline)}
+                截止时间 {formatDeadline(project.deadline)}
               </div>
             </div>
           </div>

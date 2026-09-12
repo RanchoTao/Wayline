@@ -1,5 +1,6 @@
 "use client";
 
+import { taskName, systemText, taskStatusText, priorityText, riskText } from "@/lib/zh";
 import { useMemo } from "react";
 import { useWorkspace } from "@/store/workspace";
 import { useNow } from "@/hooks/useNow";
@@ -44,20 +45,23 @@ export function InsightPanel() {
   }, [pendingPlan, now]);
 
   return (
-    <aside className="flex h-[70vh] min-h-0 flex-col border-l border-line bg-card md:h-auto">
+    <aside className="wayline-insight-panel flex h-[70vh] min-h-0 flex-col border-l border-line bg-card md:h-auto">
       <div className="flex items-center justify-between border-b border-line px-3 py-2">
-        <h2 className="vd-label">Agent Insight</h2>
+        <h2 className="vd-label">计划洞察</h2>
         <span className="vd-num text-[9px] text-faint">
-          {isMockAgent() ? "DETERMINISTIC ENGINE" : "PILOTDECK"}
+          {isMockAgent() ? "本地分析" : "PILOTDECK"}
         </span>
       </div>
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-3">
         {!current && (
-          <div className="vd-num mt-8 text-center text-[11px] leading-relaxed text-faint">
-            No project yet.
-            <br />
-            Agent insight appears once a plan exists.
+          <div className="wayline-insight-empty">
+            <span className="wayline-compass" aria-hidden="true">↗</span>
+            <h3>看清当下，找到方向。</h3>
+            <p>计划建立后，在这里查看进度、风险与下一步建议。</p>
+            <div><span>01</span> 了解当前状态</div>
+            <div><span>02</span> 发现关键阻碍</div>
+            <div><span>03</span> 随变化调整计划</div>
           </div>
         )}
 
@@ -65,7 +69,7 @@ export function InsightPanel() {
           <>
             {/* risk */}
             <section>
-              <SectionLabel>Risk</SectionLabel>
+              <SectionLabel>风险评估</SectionLabel>
               <div className="flex items-center gap-3">
                 <div className="vd-num text-[40px] font-black leading-none text-ink">
                   {current.risk.score.toFixed(2)}
@@ -73,13 +77,13 @@ export function InsightPanel() {
                 <span
                   className={`vd-num rounded-[2px] border px-1.5 py-0.5 text-[11px] font-black ${LEVEL_STYLE[riskLevelOf(current.risk.score)]}`}
                 >
-                  {riskLevelOf(current.risk.score)}
+                  {riskText[riskLevelOf(current.risk.score)]}
                 </span>
               </div>
               <div className="mt-1.5 flex flex-col gap-0.5">
                 {current.risk.reasons.map((r, i) => (
                   <div key={i} className="vd-num text-[10px] leading-relaxed text-muted">
-                    • {r}
+                    • {systemText(r)}
                   </div>
                 ))}
               </div>
@@ -87,39 +91,39 @@ export function InsightPanel() {
 
             {/* status */}
             <section className="border-t border-line pt-4">
-              <SectionLabel>Current status</SectionLabel>
+              <SectionLabel>当前状态</SectionLabel>
               <div className={`vd-num text-[13px] font-black ${current.m.scheduleGap < 0 ? "text-alarm" : "text-ok"}`}>
-                {current.insight.statusText}
+                {systemText(current.insight.statusText)}
               </div>
               <div className="vd-num mt-0.5 text-[10px] text-muted">
-                {formatHours(current.m.remainingMs / 3_600_000)} left ·{" "}
-                {current.m.requiredHours.toFixed(1)}h required ·{" "}
-                {current.m.availableHours.toFixed(1)}h available
+                {formatHours(current.m.remainingMs / 3_600_000)} 后截止 ·{" "}
+                {current.m.requiredHours.toFixed(1)} 小时待完成 ·{" "}
+                {current.m.availableHours.toFixed(1)} 小时可用
               </div>
             </section>
 
             {/* bottleneck */}
             <section className="border-t border-line pt-4">
-              <SectionLabel>Main bottleneck</SectionLabel>
+              <SectionLabel>主要阻碍</SectionLabel>
               {current.bottleneck ? (
                 <>
                   <div className="vd-num text-[14px] font-black text-ink">
-                    {current.bottleneck.title.toUpperCase()}
+                    {taskName(current.bottleneck.title)}
                   </div>
                   <div className="vd-num mt-1 text-[10px] leading-relaxed text-muted">
-                    {current.insight.bottleneckReason}
+                    {systemText(current.insight.bottleneckReason)}
                   </div>
                 </>
               ) : (
-                <div className="vd-num text-[11px] text-ok">No open bottleneck — all critical work is moving.</div>
+                <div className="vd-num text-[11px] text-ok">暂无阻碍，关键任务正在推进。</div>
               )}
             </section>
 
             {/* next action */}
             <section className="border-t border-line pt-4">
-              <SectionLabel>Next best action</SectionLabel>
+              <SectionLabel>下一步建议</SectionLabel>
               <pre className="vd-num whitespace-pre-wrap text-[11px] leading-relaxed text-ink">
-                {current.insight.recommendedAction}
+                {systemText(current.insight.recommendedAction)}
               </pre>
             </section>
           </>
@@ -129,34 +133,34 @@ export function InsightPanel() {
         {current && pendingPlan && next && (
           <>
             <section className="vd-pulse border border-alarm bg-alarm-soft p-3">
-              <div className="vd-label mb-1 text-alarm-dark">Replan ready</div>
+              <div className="vd-label mb-1 text-alarm-dark">调整方案已就绪</div>
               <div className="vd-num text-[11px] leading-relaxed text-ink">
-                {pendingPlan.explanation}
+                {systemText(pendingPlan.explanation)}
               </div>
             </section>
 
             <section className="border-t border-line pt-3">
-              <SectionLabel>Risk change</SectionLabel>
+              <SectionLabel>风险变化</SectionLabel>
               <div className="flex items-center gap-2">
                 <span className="vd-num border border-line-strong px-1.5 py-0.5 text-[12px] font-black text-muted">
-                  {current.risk.score.toFixed(2)} {riskLevelOf(current.risk.score)}
+                  {current.risk.score.toFixed(2)} {riskText[riskLevelOf(current.risk.score)]}
                 </span>
                 <span className="vd-num text-alarm">→</span>
                 <span
                   className={`vd-num border px-1.5 py-0.5 text-[12px] font-black ${LEVEL_STYLE[riskLevelOf(next.risk.score)]}`}
                 >
-                  {next.risk.score.toFixed(2)} {riskLevelOf(next.risk.score)}
+                  {next.risk.score.toFixed(2)} {riskText[riskLevelOf(next.risk.score)]}
                 </span>
               </div>
               <div className="vd-num mt-1 text-[10px] text-muted">
                 {next.risk.reasons.slice(0, 2).map((r, i) => (
-                  <div key={i}>• {r}</div>
+                  <div key={i}>• {systemText(r)}</div>
                 ))}
               </div>
             </section>
 
             <section className="border-t border-line pt-3">
-              <SectionLabel>Affected tasks</SectionLabel>
+              <SectionLabel>受影响任务</SectionLabel>
               <div className="flex flex-col gap-1">
                 {pendingPlan.changedTaskIds.slice(0, 12).map((id) => {
                   const before = project?.tasks.find((t) => t.id === id);
@@ -167,13 +171,13 @@ export function InsightPanel() {
                   return (
                     <div key={id} className="vd-num flex items-center justify-between text-[10px]">
                       <span className={`truncate ${after.status === "cancelled" || after.status === "deferred" ? "text-faint line-through" : "text-ink"}`}>
-                        {after.title}
+                        {taskName(after.title)}
                       </span>
                       <span className={`shrink-0 font-bold ${changed ? "text-alarm" : "text-faint"}`}>
                         {before.status !== after.status
-                          ? `${before.status} → ${after.status}`
+                          ? `${taskStatusText[before.status]} → ${taskStatusText[after.status]}`
                           : before.priority !== after.priority
-                            ? `${before.priority} → ${after.priority}`
+                            ? `${priorityText[before.priority]} → ${priorityText[after.priority]}`
                             : "—"}
                       </span>
                     </div>
@@ -188,13 +192,13 @@ export function InsightPanel() {
                 onClick={applyPendingPlan}
                 disabled={thinking}
               >
-                APPLY PLAN
+                应用新计划
               </button>
               <button
                 className="vd-btn border border-line-strong px-3 py-2 text-[11px] text-muted hover:border-ink hover:text-ink"
                 onClick={discardPendingPlan}
               >
-                DISCARD
+                放弃调整
               </button>
             </section>
           </>
@@ -202,9 +206,9 @@ export function InsightPanel() {
 
         {/* pipeline readout */}
         <section className="border-t border-line pt-3">
-          <SectionLabel>Agent pipeline</SectionLabel>
+          <SectionLabel>规划流程</SectionLabel>
           <div className="vd-num flex flex-wrap items-center gap-1 text-[9px] text-muted">
-            {["Goal", "Decompose", "Schedule", "Risk", "Replan"].map((s, i) => (
+            {["目标", "拆解", "排期", "风险", "调整"].map((s, i) => (
               <span key={s} className="flex items-center gap-1">
                 <span className="rounded-[1px] border border-line-strong px-1 py-px">{s}</span>
                 {i < 4 && <span className="text-faint">→</span>}
@@ -212,7 +216,7 @@ export function InsightPanel() {
             ))}
           </div>
           <div className="vd-num mt-1.5 text-[9px] leading-relaxed text-faint">
-            Deterministic local engine · swaps to PilotDeck SDK without UI changes
+            计划保存在当前浏览器中，可随时继续。
           </div>
         </section>
       </div>

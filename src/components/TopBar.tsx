@@ -6,6 +6,7 @@ import { useNow } from "@/hooks/useNow";
 import { computeMetrics, computeRisk } from "@/lib/metrics";
 import { formatCountdown, formatDeadline, formatPct } from "@/lib/format";
 import { parseIso, toIso } from "@/lib/time";
+import { Waymark } from "./WaylineBrand";
 import { RiskBadge } from "./RiskBadge";
 
 export function TopBar() {
@@ -44,32 +45,29 @@ export function TopBar() {
     const reader = new FileReader();
     reader.onload = () => {
       const ok = importJson(String(reader.result ?? ""));
-      if (!ok) alert("Import failed: not a VisualDeadline export.");
+      if (!ok) alert("导入失败：请选择有效的工作台导出文件。");
     };
     reader.readAsText(file);
   };
 
   return (
-    <header className="flex h-auto min-h-14 shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-card px-4 py-1.5 md:h-14 md:flex-nowrap md:py-0">
-      {/* brand */}
-      <div className="flex items-baseline gap-2 whitespace-nowrap">
-        <h1 className="vd-num text-[14px] font-black tracking-[0.08em] text-ink md:text-[17px]">
-          VISUALDEADLINE
-        </h1>
-        <span className="vd-label text-alarm">AGENT</span>
+    <header className="wayline-topbar flex h-auto min-h-14 shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-card px-4 py-1.5 xl:flex-nowrap">
+      <div className="wayline-brand">
+        <Waymark /><h1>WAYLINE</h1>
+        <span className="wayline-brand-tag">个人工作台</span>
       </div>
 
       {/* countdown — the heartbeat */}
       <div className="flex min-w-0 flex-1 items-center gap-4">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-2 whitespace-nowrap">
           <span
             className={`vd-num text-[20px] font-black tracking-tight md:text-[26px] ${
-              countdown.startsWith("00D") ? "vd-pulse text-alarm" : "text-alarm"
+              countdown.startsWith("00天") ? "vd-pulse text-alarm" : "text-ink"
             }`}
           >
             {countdown}
           </span>
-          <span className="vd-label">LEFT</span>
+          <span className="vd-label">剩余</span>
         </div>
 
         {/* deadline (click to edit) */}
@@ -84,7 +82,7 @@ export function TopBar() {
                 onKeyDown={(e) => e.key === "Enter" && handleDeadlineSave()}
               />
               <button className="vd-btn border border-alarm px-1.5 py-0.5 text-alarm" onClick={handleDeadlineSave}>
-                SET
+                保存
               </button>
             </div>
           ) : (
@@ -94,7 +92,7 @@ export function TopBar() {
                 setDeadlineDraft(toIso(parseIso(project.deadline)).slice(0, 16));
                 setEditingDeadline(true);
               }}
-              title="Edit deadline — remaining time, expected progress and risk recompute"
+              title="修改截止时间，自动更新剩余时间、预期进度与风险"
             >
               {formatDeadline(project.deadline)}
             </button>
@@ -107,7 +105,7 @@ export function TopBar() {
           <div className="hidden items-center gap-3 md:flex">
             <div className="vd-num text-[12px] font-bold text-ink">
               {formatPct(m.workDonePercent)}{" "}
-              <span className="vd-label">COMPLETE</span>
+              <span className="vd-label">已完成</span>
             </div>
             {risk && <RiskBadge project={project} now={now} />}
           </div>
@@ -127,18 +125,18 @@ export function TopBar() {
         <button
           className="vd-btn border border-ink bg-ink px-2.5 py-1 text-white hover:bg-alarm hover:border-alarm"
           onClick={loadDemo}
-          title="One-click demo story: 65% time used, 42% work done, behind schedule"
+          title="体验示例：时间消耗 65%，任务完成 42%，尝试调整计划"
         >
-          LOAD HACKATHON DEMO
+          加载示例计划
         </button>
         {project && (
           <>
             <button
               className="vd-btn hidden border border-line-strong px-2 py-1 text-ink-soft hover:border-ink hover:text-ink md:inline-block"
               onClick={() => fileRef.current?.click()}
-              title="Import a JSON export"
+              title="导入已导出的 JSON 文件"
             >
-              IMPORT
+              导入
             </button>
             <button
               className="vd-btn hidden border border-line-strong px-2 py-1 text-ink-soft hover:border-ink hover:text-ink md:inline-block"
@@ -147,20 +145,20 @@ export function TopBar() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = "visualdeadline-export.json";
+                a.download = "wayline-export.json";
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              title="Export workspace as JSON"
+              title="导出工作台数据"
             >
-              EXPORT
+              导出
             </button>
             <button
               className="vd-btn border border-line-strong px-2 py-1 text-muted hover:border-alarm hover:text-alarm"
               onClick={reset}
-              title="Clear workspace"
+              title="清空工作台"
             >
-              RESET
+              重置
             </button>
           </>
         )}

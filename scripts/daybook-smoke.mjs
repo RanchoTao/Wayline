@@ -1,0 +1,40 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : undefined), headless: true });
+try {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  const menu = name => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+  await page.goto(process.env.BASE_URL || 'http://localhost:3011');
+  await page.getByRole('button', { name: '加载示例计划' }).first().click();
+  await menu('今日');
+  await page.getByLabel('快速记录').fill('试用今日路书');
+  await page.getByRole('button', { name: '记入今日' }).click();
+  await page.getByLabel('完成：试用今日路书', { exact: true }).click();
+  await menu('回顾');
+  await page.locator('.daybook-row').filter({ hasText: '试用今日路书' }).waitFor();
+  await page.getByRole('button', { name: '撤销完成' }).click();
+  await menu('今日');
+  await page.getByLabel('完成：试用今日路书', { exact: true }).waitFor();
+  await page.getByLabel('界面原型', { exact: true }).check();
+  await page.getByLabel('完成：界面原型', { exact: true }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('vd-workspace-v1')).state.project.tasks.find(t => t.id === 't_ui_prototype'));
+  if (saved.progress !== 1) throw new Error('plan sync failed');
+  await menu('问路 · 算一卦');
+  await page.getByRole('button', { name: '掷一卦，找点灵感' }).click();
+  if (await page.locator('.oracle-line').count() !== 6) throw new Error('six lines missing');
+  await page.getByRole('button', { name: '把这件事加入今日' }).click();
+  if (!await page.getByRole('button', { name: '已加入今日 ✓' }).isDisabled()) throw new Error('duplicate prevention failed');
+  await page.screenshot({ path: 'scripts/shots/wayline-oracle.png' });
+  await page.reload();
+  await menu('今日');
+  await page.getByLabel('完成：试用今日路书', { exact: true }).waitFor();
+  await page.screenshot({ path: 'scripts/shots/wayline-today.png' });
+  await page.setViewportSize({ width: 375, height: 900 });
+  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('mobile overflow');
+  await page.screenshot({ path: 'scripts/shots/wayline-today-mobile.png' });
+  if (errors.length) throw new Error(errors.join('\n'));
+  console.log('PASS menu, capture, completion, undo, plan sync, hexagram, deduplication, persistence and mobile layout');
+} finally {
+  await browser.close();
+}

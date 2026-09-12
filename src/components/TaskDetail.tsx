@@ -1,5 +1,6 @@
 "use client";
 
+import { taskName, systemText, taskStatusText } from "@/lib/zh";
 import { useState } from "react";
 import { useWorkspace } from "@/store/workspace";
 import type { Task } from "@/lib/types";
@@ -12,7 +13,7 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
   const setTaskProgress = useWorkspace((s) => s.setTaskProgress);
   const setTaskStatus = useWorkspace((s) => s.setTaskStatus);
   const setTaskTitle = useWorkspace((s) => s.setTaskTitle);
-  const [title, setTitle] = useState(task.title);
+  const [title, setTitle] = useState(taskName(task.title));
 
   const remaining = Math.max(0, task.estimatedHours - task.completedHours);
 
@@ -26,21 +27,21 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="vd-label">Task</h3>
+          <h3 className="vd-label">任务详情</h3>
           <button className="vd-label cursor-pointer text-muted hover:text-alarm" onClick={onClose}>
-            CLOSE ✕
+            关闭 ✕
           </button>
         </div>
 
-        <label className="vd-label mb-1 block">Title</label>
+        <label className="vd-label mb-1 block">任务名称</label>
         <input
           className="vd-input mb-3 w-full border border-line-strong px-2 py-1 text-[13px]"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => title.trim() && setTaskTitle(task.id, title.trim())}
+          onBlur={() => title.trim() && title !== taskName(task.title) && setTaskTitle(task.id, title.trim())}
         />
 
-        <label className="vd-label mb-1 block">Status</label>
+        <label className="vd-label mb-1 block">任务状态</label>
         <div className="mb-3 flex flex-wrap gap-1.5">
           {STATUS_OPTIONS.map((s) => (
             <button
@@ -52,12 +53,12 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
                   : "border-line-strong text-muted hover:border-ink hover:text-ink"
               }`}
             >
-              {s.toUpperCase()}
+              {taskStatusText[s]}
             </button>
           ))}
         </div>
 
-        <label className="vd-label mb-1 block">Progress</label>
+        <label className="vd-label mb-1 block">完成进度</label>
         <div className="mb-1 flex gap-1.5">
           {[0, 25, 50, 75, 100].map((p) => (
             <button
@@ -82,27 +83,27 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
 
         <div className="grid grid-cols-3 gap-2 border-t border-line pt-3 text-[11px]">
           <div>
-            <div className="vd-label">Estimated</div>
+            <div className="vd-label">预计工时</div>
             <div className="vd-num font-bold">{formatHours(task.estimatedHours)}</div>
           </div>
           <div>
-            <div className="vd-label">Completed</div>
+            <div className="vd-label">已完成工时</div>
             <div className="vd-num font-bold">{formatHours(task.completedHours)}</div>
           </div>
           <div>
-            <div className="vd-label">Remaining</div>
+            <div className="vd-label">剩余工时</div>
             <div className="vd-num font-bold text-alarm">{formatHours(remaining)}</div>
           </div>
         </div>
 
         {task.description && (
           <p className="vd-num mt-3 border-t border-line pt-2 text-[11px] leading-relaxed text-muted">
-            {task.description}
+            {systemText(task.description)}
           </p>
         )}
 
         <div className="vd-label mt-3 text-[10px] text-muted">
-          Risk & schedule recompute live when progress or status changes.
+          调整进度或状态后，风险与计划将实时更新。
         </div>
       </div>
     </div>

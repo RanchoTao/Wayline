@@ -1,6 +1,6 @@
-# VisualDeadline Agent
+# wayline
 
-> **VisualDeadline Agent turns vague goals into visible, adaptive execution plans.**
+> **wayline turns vague goals into visible, adaptive execution plans.**
 > 把「我要做完这件事」变成一条真正可以执行、可以动态调整的时间线。
 
 An Agent-native, local-first deadline cockpit built for the **Hi Youth Hackathon (PilotDeck track)**.
@@ -61,3 +61,32 @@ npm run test:layout
 3. Type `I only have 3 hours today` → agent detects the constraint → **APPLY PLAN**
 4. Timeline animates: Landing Page cancelled, Visual Polish deferred, PilotDeck prioritized, risk drops to **MEDIUM**
 5. Click any task → edit progress → risk recalculates live. Refresh → state persists.
+
+## Visual design
+
+The workspace follows Wayline's white and lake-blue identity: a serif brand
+wordmark, a skyline and paper-plane route, and spacious planning panels. Warm
+terracotta still indicates schedule risk; blue is used for primary controls and
+active task bars. Artwork is local SVG in `src/components/WaylineBrand.tsx`, and
+shared visual tokens live in `src/app/globals.css`. No external fonts or image
+services are needed. On smaller screens, the panels stack and scroll vertically;
+reduced-motion preferences disable decorative transitions.
+
+Browser checks use Chrome on macOS by default, or Playwright's installed Chromium
+on other platforms. Set `CHROME_PATH` to use a different browser executable and
+`BASE_URL` when the development server runs on a different port:
+
+```bash
+BASE_URL=http://localhost:3011 npm run test:e2e
+BASE_URL=http://localhost:3011 npm run test:layout
+```
+
+## 轻量路书试用
+
+工作台增加「今日 / 计划 / 回顾 / 问路」菜单，默认仍打开计划页。
+今日支持快速记录、完成与删除，也可选择现有计划任务；完成关联任务会同步更新时间线与风险。
+随手记和每日选择单独保存在 `wayline-daybook-v1`，计划数据仍使用原有存储。
+回顾目前只统计随手记的完成记录，支持撤销完成，不推断旧计划的历史完成日期。
+顶部重置、导入和导出操作仍只作用于计划工作台，不包含随手记。
+问路使用三枚硬币法随机生成六爻，展示卦名和可选的小行动，可加入今日。
+卦象与小行动用于娱乐和自我反思，不参与计划排期或风险计算。
