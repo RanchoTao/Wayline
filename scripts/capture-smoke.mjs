@@ -1,7 +1,7 @@
 import { chromium } from "playwright-core";
 import path from "node:path";
 
-const EXE = process.env.CHROME_PATH || (process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
+const EXE = process.env.CHROME_PATH || (process.platform === "win32" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const browser = await chromium.launch({ executablePath: EXE, headless: true });
 let failures = 0;
@@ -9,7 +9,7 @@ const check = (condition, label) => { console.log(`${condition ? "PASS" : "FAIL"
 
 try {
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
-  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/?mock=1`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "先走最值得走的一步。" }).waitFor();
   await page.getByRole("button", { name: "＋ 记录", exact: true }).click();
   await page.getByRole("tab", { name: "图片" }).click();

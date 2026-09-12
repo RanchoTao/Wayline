@@ -1,6 +1,6 @@
 import { chromium } from "playwright-core";
 
-const EXE = process.env.CHROME_PATH || (process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
+const EXE = process.env.CHROME_PATH || (process.platform === "win32" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const browser = await chromium.launch({ executablePath: EXE, headless: true });
 let failures = 0;

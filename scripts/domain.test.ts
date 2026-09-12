@@ -3,7 +3,7 @@ import test from "node:test";
 import { materializeCapture } from "../src/domain/capture";
 import { buildWaylineDemo } from "../src/domain/demo";
 import { migrateLegacyProject } from "../src/domain/migrations";
-import type { Capture, WaylineProject, WaylineTask } from "../src/domain/models";
+import type { Capture, CaptureResult, WaylineProject, WaylineTask } from "../src/domain/models";
 import { analyzeTask, matrixQuadrant, priorityScore, taskPressure, topTasks, urgencyWeight } from "../src/domain/priority/engine";
 import { computeReviewStatistics } from "../src/domain/review";
 import { MockCaptureProvider } from "../src/lib/ai/mock";
@@ -94,6 +94,34 @@ test("materialized project keeps a non-actionable parent and executable dependen
   assert.equal(created.tasks.filter((item) => !item.actionable).length, 1);
   assert.equal(created.tasks.filter((item) => item.actionable).length, 8);
   assert.ok(created.tasks.slice(2).every((item) => item.dependencies.length === 1));
+});
+
+test("materialized actionable capture with no suggestions becomes exactly one executable task", async () => {
+  const result: CaptureResult = {
+    rawInput: "明天下午之前把概率论作业第三章完成",
+    normalizedText: "完成概率论作业第三章",
+    inputType: "voice",
+    intent: "task",
+    title: "完成概率论作业第三章",
+    deadline: new Date(NOW + 86_400_000).toISOString(),
+    importance: 8,
+    estimatedDuration: 150,
+    actionable: true,
+    confidence: 0.9,
+    provider: "PILOTDECK",
+    warnings: [],
+    suggestedTasks: [],
+  };
+  const capture: Capture = { id: "capture-voice", createdAt: new Date(NOW).toISOString(), status: "pending", inputType: "voice", rawInput: result.rawInput, result };
+  let id = 0;
+  const created = materializeCapture(capture, new Date(NOW).toISOString(), (prefix) => `${prefix}-${++id}`);
+  assert.equal(created.projects.length, 0);
+  assert.equal(created.tasks.length, 1);
+  assert.equal(created.tasks[0].actionable, true);
+  assert.equal(created.tasks[0].title, "完成概率论作业第三章");
+  assert.equal(created.tasks[0].estimatedMinutes, 150);
+  assert.equal(created.tasks[0].source, "voice");
+  assert.equal(created.tasks[0].createdByAI, false);
 });
 
 test("completing Top 1 removes it and automatically promotes the next task", () => {

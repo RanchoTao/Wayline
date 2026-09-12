@@ -1,6 +1,6 @@
 import { chromium } from "playwright-core";
 
-const EXE = process.env.CHROME_PATH || (process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
+const EXE = process.env.CHROME_PATH || (process.platform === "win32" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const browser = await chromium.launch({ executablePath: EXE, headless: true });
 let failures = 0;
@@ -11,7 +11,9 @@ try {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
-  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  // Core-loop assertions need deterministic fixture semantics, not a live
+  // model's variable interpretation. Real-provider coverage lives in P1-P3.
+  await page.goto(`${BASE}/?mock=1`, { waitUntil: "domcontentloaded" });
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "先走最值得走的一步。" }).waitFor();

@@ -53,5 +53,25 @@ export function materializeCapture(
     sourceCaptureId: capture.id,
     createdByAI: !capture.result.actionable,
   }));
-  return { projects, tasks: [...parent, ...children] };
+  // A directly actionable capture (no decomposition) becomes exactly ONE task.
+  const directTask: WaylineTask[] = capture.result.actionable && capture.result.suggestedTasks.length === 0 ? [{
+    id: idFactory("task"),
+    title: capture.result.title,
+    description: capture.result.description,
+    projectId: undefined,
+    parentTaskId: undefined,
+    createdAt: now,
+    deadline: capture.result.deadline,
+    importance: capture.result.importance ?? 7,
+    estimatedMinutes: capture.result.estimatedDuration,
+    completedMinutes: 0,
+    progress: 0,
+    status: "ready",
+    actionable: true,
+    dependencies: [],
+    source: capture.inputType,
+    sourceCaptureId: capture.id,
+    createdByAI: false,
+  }] : [];
+  return { projects, tasks: [...parent, ...children, ...directTask] };
 }

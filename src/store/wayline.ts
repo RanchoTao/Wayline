@@ -10,6 +10,7 @@ import {
   WAYLINE_SCHEMA_VERSION,
   type Capture,
   type CaptureDraftInput,
+  type CaptureResult,
   type Review,
   type ReviewRange,
   type TaskStatus,
@@ -17,7 +18,8 @@ import {
   type WaylineSettings,
   type WaylineTask,
 } from "@/domain/models";
-import { getCaptureProvider } from "@/lib/ai/provider";
+import { getCaptureProvider, getPilotDeckProvider, recordPilotDeckMeta } from "@/lib/ai/provider";
+import { MockCaptureProvider } from "@/lib/ai/mock";
 
 const makeId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -31,6 +33,7 @@ interface WaylineState {
   hydrated: boolean;
   analyzing: boolean;
   lastError: string | null;
+  lastNotice: string | null;
   pendingCaptureId: string | null;
   bootstrap: () => void;
   analyzeCapture: (input: CaptureDraftInput) => Promise<void>;
@@ -61,6 +64,7 @@ export const useWayline = create<WaylineState>()(persist((set, get) => ({
   hydrated: false,
   analyzing: false,
   lastError: null,
+  lastNotice: null,
   pendingCaptureId: null,
 
   bootstrap: () => {
@@ -74,10 +78,39 @@ export const useWayline = create<WaylineState>()(persist((set, get) => ({
   },
 
   analyzeCapture: async (input) => {
-    set({ analyzing: true, lastError: null });
+    if (get().analyzing) return;
+    set({ analyzing: true, lastError: null, lastNotice: null });
+    const started = Date.now();
     try {
       const provider = getCaptureProvider();
-      const result = await provider.understand(input);
+      let result: CaptureResult;
+      let fallbackReason: string | undefined;
+      try {
+        result = await provider.understand(input);
+        const pd = getPilotDeckProvider();
+        const bridgeMeta = pd?.meta;
+        if (provider.isMock) {
+          fallbackReason = "?mock=1 forced";
+        } else {
+          recordPilotDeckMeta({
+            provider: "PILOTDECK",
+            model: bridgeMeta?.model ?? "pilotdeck-bridge",
+            requestType: bridgeMeta?.requestType ?? (input.inputType === "image" ? "multimodal" : "text"),
+            latencyMs: bridgeMeta?.latencyMs ?? Date.now() - started,
+            retryCount: bridgeMeta?.retryCount ?? 0,
+            fallback: false,
+          });
+        }
+      } catch (pilotError) {
+        // Real PilotDeck unavailable (timeout / key / network): record why,
+        // then fall back to the local deterministic mock so the demo survives.
+        const reason = pilotError instanceof Error ? pilotError.message : String(pilotError);
+        fallbackReason = reason;
+        const fallback = new MockCaptureProvider();
+        result = await fallback.understand(input);
+      }
+      const bridgeMeta = getPilotDeckProvider()?.meta;
+      recordPilotDeckMeta({ provider: fallbackReason ? "MOCK" : "PILOTDECK", model: fallbackReason ? "local-rules" : bridgeMeta?.model ?? "pilotdeck-bridge", requestType: input.inputType === "image" ? "multimodal" : "text", latencyMs: bridgeMeta?.latencyMs ?? Date.now() - started, retryCount: fallbackReason ? 0 : bridgeMeta?.retryCount ?? 0, fallback: Boolean(fallbackReason), fallbackReason, intent: result.intent, actionable: result.actionable, suggestedTaskCount: result.suggestedTasks.length });
       const id = makeId("capture");
       const capture: Capture = {
         id,
@@ -88,7 +121,7 @@ export const useWayline = create<WaylineState>()(persist((set, get) => ({
         attachment: attachmentOf(input),
         result,
       };
-      set((state) => ({ captures: [...state.captures, capture], pendingCaptureId: id, analyzing: false }));
+      set((state) => ({ captures: [...state.captures, capture], pendingCaptureId: id, analyzing: false, lastNotice: fallbackReason ? "PilotDeck 暂时不可用，已使用本地理解继续生成预览。" : null }));
     } catch (error) {
       set({ analyzing: false, lastError: error instanceof Error ? error.message : String(error) });
     }
@@ -160,7 +193,7 @@ export const useWayline = create<WaylineState>()(persist((set, get) => ({
     };
   }),
 
-  loadDemo: () => set({ ...buildWaylineDemo(), captures: [], reviews: [], pendingCaptureId: null, lastError: null }),
+  loadDemo: () => set({ ...buildWaylineDemo(), captures: [], reviews: [], pendingCaptureId: null, lastError: null, lastNotice: null }),
 }), {
   name: "wayline-core-v2",
   version: WAYLINE_SCHEMA_VERSION,
