@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { materializeCapture } from "../src/domain/capture";
+import { buildWaylineDemo } from "../src/domain/demo";
 import { migrateLegacyProject } from "../src/domain/migrations";
 import type { Capture, WaylineProject, WaylineTask } from "../src/domain/models";
 import { analyzeTask, matrixQuadrant, priorityScore, taskPressure, topTasks, urgencyWeight } from "../src/domain/priority/engine";
@@ -41,6 +42,35 @@ test("Top 3 exposes executable prerequisites instead of blocked descendants", ()
   const prerequisite = task({ id: "prerequisite", importance: 7 });
   const blocked = task({ id: "blocked", importance: 10, dependencies: ["prerequisite"] });
   assert.deepEqual(topTasks([blocked, prerequisite], NOW).map((item) => item.id), ["prerequisite"]);
+});
+
+test("startAfter in the future excludes a task from Top 3 candidates", () => {
+  const now = NOW;
+  const future = task({ id: "future", importance: 10, startAfter: new Date(now + 7 * 86_400_000).toISOString() });
+  const ready = task({ id: "ready", importance: 5 });
+  const list = topTasks([future, ready], now);
+  assert.deepEqual(list.map((item) => item.id), ["ready"]);
+  assert.ok(!list.some((item) => item.id === "future"), "future-startAfter task must be filtered from candidates");
+  // past startAfter is eligible
+  const past = task({ id: "past", importance: 9, startAfter: new Date(now - 86_400_000).toISOString() });
+  assert.deepEqual(topTasks([future, past], now).map((item) => item.id), ["past"]);
+});
+
+test("wayline demo spreads across all four quadrants with an executable Top 3", () => {
+  const { projects, tasks } = buildWaylineDemo(NOW);
+  assert.equal(projects.length, 1);
+  assert.ok(tasks.length >= 9, `demo should be rich, got ${tasks.length}`);
+  const quadrants = new Set(tasks.map((item) => analyzeTask(item, tasks, NOW).matrixPosition.quadrant));
+  for (const q of ["I", "II", "III", "IV"] as const) assert.ok(quadrants.has(q), `demo missing quadrant ${q}`);
+  const top = topTasks(tasks, NOW);
+  assert.equal(top.length, 3);
+  for (const item of top) {
+    const analysis = analyzeTask(item, tasks, NOW);
+    assert.ok(!analysis.blocked, `${item.title} must not be blocked in Top 3`);
+  }
+  // a blocked high-priority task still exists in demo for honest display
+  const blockedHigh = tasks.some((item) => analyzeTask(item, tasks, NOW).blocked && item.importance >= 9);
+  assert.ok(blockedHigh, "demo should include a blocked high-importance task for display");
 });
 
 test("large exam goal is decomposed; scoped exercise remains one actionable task", async () => {

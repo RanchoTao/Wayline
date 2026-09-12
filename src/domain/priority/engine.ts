@@ -78,6 +78,13 @@ export function isActiveExecutable(task: WaylineTask): boolean {
   return task.actionable && !["done", "cancelled", "deferred"].includes(task.status);
 }
 
+/** Candidate eligibility: actionable leaf that is not scheduled for the future. */
+export function isExecutableAt(task: WaylineTask, now = Date.now()): boolean {
+  if (!isActiveExecutable(task)) return false;
+  if (!task.startAfter) return true;
+  return new Date(task.startAfter).getTime() <= now;
+}
+
 export function isBlocked(task: WaylineTask, tasks: WaylineTask[]): boolean {
   if (!task.dependencies.length) return false;
   const byId = new Map(tasks.map((candidate) => [candidate.id, candidate]));
@@ -125,14 +132,14 @@ export function rankTasks(tasks: WaylineTask[], now = Date.now()): WaylineTask[]
 }
 
 export function topTasks(tasks: WaylineTask[], now = Date.now(), limit = 3): WaylineTask[] {
-  const unblocked = tasks.filter((task) => isActiveExecutable(task) && !isBlocked(task, tasks));
-  return rankTasks(unblocked, now).slice(0, limit);
+  const candidates = tasks.filter((task) => isExecutableAt(task, now) && !isBlocked(task, tasks));
+  return rankTasks(candidates, now).slice(0, limit);
 }
 
 /** VisualDeadline Heat Zone: within 30 days, deadline first, importance as tie-breaker. */
 export function heatZoneTasks(tasks: WaylineTask[], now = Date.now(), limit = 12): WaylineTask[] {
   return tasks
-    .filter((task) => isActiveExecutable(task) && task.deadline && new Date(task.deadline).getTime() - now <= HEAT_WINDOW_MS)
+    .filter((task) => isExecutableAt(task, now) && task.deadline && new Date(task.deadline).getTime() - now <= HEAT_WINDOW_MS)
     .sort((a, b) => {
       const aDue = a.deadline ? new Date(a.deadline).getTime() : Number.POSITIVE_INFINITY;
       const bDue = b.deadline ? new Date(b.deadline).getTime() : Number.POSITIVE_INFINITY;
