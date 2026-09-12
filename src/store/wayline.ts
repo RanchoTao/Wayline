@@ -37,6 +37,7 @@ interface WaylineState {
   confirmCapture: (captureId: string) => void;
   cancelCapture: (captureId: string) => void;
   updateTask: (taskId: string, patch: Partial<Pick<WaylineTask, "title" | "description" | "importance" | "deadline" | "estimatedMinutes" | "completedMinutes" | "progress" | "status">>) => void;
+  startTask: (taskId: string) => void;
   completeTask: (taskId: string) => void;
   generateReview: (range: ReviewRange, now?: number) => void;
   applyReviewSuggestion: (reviewId: string, suggestionId: string) => void;
@@ -127,6 +128,12 @@ export const useWayline = create<WaylineState>()(persist((set, get) => ({
   })),
 
   completeTask: (taskId) => get().updateTask(taskId, { status: "done", progress: 100 }),
+
+  startTask: (taskId) => {
+    const task = get().tasks.find((item) => item.id === taskId);
+    if (!task || task.status === "in_progress" || task.status === "done" || task.status === "cancelled") return;
+    get().updateTask(taskId, { status: "in_progress" });
+  },
 
   generateReview: (range, now = Date.now()) => set((state) => {
     const review = buildReview(state.tasks, state.projects, range, now);
