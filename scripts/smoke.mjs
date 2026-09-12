@@ -1,105 +1,84 @@
-/**
- * End-to-end smoke test for the VisualDeadline Agent workspace.
- * Run: node scripts/smoke.mjs   (requires dev server on :3000)
- */
 import { chromium } from "playwright-core";
 
-const EXE = process.env.CHROME_PATH || (process.platform === "darwin"
-  ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  : undefined);
+const EXE = process.env.CHROME_PATH || (process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
 const BASE = process.env.BASE_URL || "http://localhost:3000";
-
-
+const browser = await chromium.launch({ executablePath: EXE, headless: true });
 let failures = 0;
-function check(cond, label) {
-  console.log(`${cond ? "PASS" : "FAIL"}  ${label}`);
-  if (!cond) failures++;
+const check = (condition, label) => { console.log(`${condition ? "PASS" : "FAIL"}  ${label}`); if (!condition) failures += 1; };
+
+try {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "先走最值得走的一步。" }).waitFor();
+
+  const capture = async (text, confirm = true) => {
+    await page.getByRole("button", { name: "＋ 记录", exact: true }).click();
+    await page.getByRole("tab", { name: "文字" }).click();
+    await page.getByLabel("记录内容").fill(text);
+    await page.getByRole("button", { name: "理解并预览" }).click();
+    await page.getByTestId("capture-preview").waitFor();
+    if (confirm) await page.getByRole("button", { name: "确认加入" }).click();
+  };
+
+  await capture("完成概率论习题 1-10，明天截止，重要性 10");
+  const topOne = page.getByTestId("top-task-1");
+  check((await topOne.innerText()).includes("完成概率论习题 1-10"), "A urgent importance-10 task becomes Top 1");
+  await page.getByRole("button", { name: "计划", exact: true }).click();
+  const urgentPoint = page.getByTestId("priority-matrix").locator("button").filter({ hasText: "完成概率论习题 1-10" });
+  check(await urgentPoint.getAttribute("data-quadrant") === "I", "A urgent importance-10 task is in quadrant I");
+
+  await capture("完成个人系统清单 1-10，半年后截止，重要性 2");
+  await page.getByRole("button", { name: "今日", exact: true }).click();
+  check(!(await page.locator('[data-testid^="top-task-"]').allInnerTexts()).join(" ").includes("个人系统清单"), "B long-horizon importance-2 task stays out of Top 3");
+
+  await page.getByRole("button", { name: "计划", exact: true }).click();
+  const longPoint = page.getByTestId("priority-matrix").locator("button").filter({ hasText: "完成个人系统清单 1-10" });
+  const scoreBefore = Number(await longPoint.getAttribute("data-priority"));
+  await longPoint.click();
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  const local = new Date(tomorrow.getTime() - tomorrow.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  await page.getByLabel("任务截止时间").fill(local);
+  await page.getByRole("button", { name: "保存并同步" }).click();
+  const scoreAfter = Number(await page.getByTestId("priority-matrix").locator("button").filter({ hasText: "完成个人系统清单 1-10" }).getAttribute("data-priority"));
+  check(scoreAfter > scoreBefore, "C deadline edit updates matrix priority immediately");
+  await page.getByRole("button", { name: "今日", exact: true }).click();
+  check(await page.getByTestId("heat-zone").locator("button").filter({ hasText: "完成个人系统清单 1-10" }).count() === 1, "C deadline edit updates Heat Zone");
+
+  const firstId = await page.getByTestId("top-task-1").getAttribute("data-task-id");
+  await page.getByTestId("top-task-1").getByRole("button", { name: "标记完成" }).click();
+  check(await page.getByTestId("top-task-1").getAttribute("data-task-id") !== firstId, "D completing Top 1 promotes the next task");
+  check(await page.locator('[data-testid^="top-task-"]').count() === 3, "D Top 3 automatically refills");
+
+  await capture("我要准备两周后的机器学习考试，考试范围 1-8 章。", false);
+  const preview = page.getByTestId("capture-preview");
+  check((await preview.innerText()).includes("目标 / Project"), "E exam preparation is recognized as a project");
+  check(await preview.locator("ol > li").count() === 8, "E exam project decomposes into eight tasks");
+  await page.getByRole("button", { name: "确认加入" }).click();
+
+  await capture("今天晚上把第三章习题 1-10 做完。", false);
+  check((await page.getByTestId("capture-preview").innerText()).includes("可执行任务"), "F scoped exercise is actionable");
+  check(await page.getByTestId("capture-preview").locator("ol > li").count() === 1, "F scoped exercise is not over-decomposed");
+  await page.getByRole("button", { name: "取消" }).click();
+
+  const storedBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("wayline-core-v2"))?.state?.tasks?.length);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "先走最值得走的一步。" }).waitFor();
+  const storedAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("wayline-core-v2"))?.state?.tasks?.length);
+  check(storedBefore === storedAfter && storedAfter > 8, "G tasks persist across refresh");
+
+  await page.getByRole("button", { name: "回顾", exact: true }).click();
+  const reviewText = await page.getByTestId("review-page").innerText();
+  check(/完成任务\s+3/.test(reviewText), "H review uses real completed task timestamps");
+  check(reviewText.includes("事实与偏差"), "H review exposes facts and deviations");
+  check(errors.length === 0, `no browser console errors${errors.length ? `: ${errors.join(" | ")}` : ""}`);
+} finally {
+  await browser.close();
 }
 
-const browser = await chromium.launch({ executablePath: EXE, headless: true });
-const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
-
-const consoleErrors = [];
-page.on("console", (msg) => {
-  if (msg.type() === "error") consoleErrors.push(msg.text());
-});
-page.on("pageerror", (err) => consoleErrors.push(String(err)));
-
-// ---- 1. open workspace ----
-await page.goto(BASE, { waitUntil: "domcontentloaded", timeout: 60000 });
-await page.waitForSelector('h1:has-text("WAYLINE")', { timeout: 30000 });
-console.log("opened workspace");
-check(await page.isVisible("text=让目标，步步可达。"), "empty state visible on first load");
-
-await page.screenshot({ path: "scripts/shots/01-empty.png" });
-
-// ---- 2. load hackathon demo ----
-await page.locator("button:has-text('加载示例计划')").first().click();
-await page.waitForSelector("text=截止时间", { timeout: 15000 });
-await page.waitForTimeout(1200);
-
-const bodyText = () => page.evaluate(() => document.body.innerText);
-
-let t = await bodyText();
-check(t.includes("时间消耗"), "时间消耗 strip visible");
-check(t.includes("任务完成"), "任务完成 strip visible");
-check(t.includes("进度偏差"), "进度偏差 strip visible");
-check(/65%/.test(t), "时间消耗 = 65%");
-check(/42%/.test(t), "任务完成 = 42%");
-check(t.includes("落后"), "落后 SCHEDULE shown");
-check(t.includes("PilotDeck 接入"), "bottleneck = PilotDeck Integration");
-check(/0\.6\d 高风险/.test(t), "risk reads 高风险 (0.6x)");
-check(t.includes("进度落后"), "STATUS: behind schedule");
-check(t.includes("计划洞察"), "insight panel present");
-check(t.includes("本地规划助手"), "本地规划助手 badge shown");
-
-await page.screenshot({ path: "scripts/shots/02-demo.png" });
-
-// ---- 3. send constraint ----
-await page.fill("textarea", "今天只有 3 小时");
-await page.waitForSelector("button:has-text('调整计划')", { timeout: 8000 });
-await page.click("button:has-text('调整计划')");
-await page.waitForSelector("button:has-text('应用新计划')", { timeout: 15000 });
-t = await bodyText();
-check(t.includes("调整方案已就绪"), "调整方案已就绪 banner shown");
-check(/已识别限制/i.test(t), "agent explained the constraint");
-await page.screenshot({ path: "scripts/shots/03-replan-ready.png" });
-
-// ---- 4. apply plan ----
-await page.click("button:has-text('应用新计划')");
-await page.waitForTimeout(1200);
-t = await bodyText();
-check(t.includes("新计划已应用"), "conversation logs 新计划已应用");
-check(t.includes("已延期"), "a task deferred (Visual Polish)");
-check(t.includes("已取消"), "a task cancelled (Landing Page)");
-check(/0\.5\d 中风险/.test(t), "risk dropped to 中风险 after replan");
-await page.screenshot({ path: "scripts/shots/04-after-apply.png" });
-
-// ---- 5. persistence across reload ----
-await page.reload({ waitUntil: "domcontentloaded" });
-await page.waitForSelector('h1:has-text("WAYLINE")', { timeout: 30000 });
-await page.waitForTimeout(800);
-t = await bodyText();
-check(/PilotDeck 接入/i.test(t), "project persisted after reload (tasks present)");
-check(t.includes("已延期"), "replan persisted after reload (Visual Polish deferred)");
-check(t.includes("计划洞察"), "insight persisted after reload");
-
-// ---- 6. task progress edit ----
-await page.click("text=界面原型");
-await page.waitForSelector("button:has-text('100%')", { timeout: 8000 });
-const storedTitleBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("vd-workspace-v1"))?.state?.project?.tasks.find((t) => t.id === "t_ui_prototype")?.title);
-check(storedTitleBefore === "UI Prototype", "localized task label preserves internal title");
-await page.click("button:has-text('100%')");
-await page.waitForTimeout(400);
-await page.keyboard.press("Escape");
-await page.click("button:has-text('关闭')").catch(() => {});
-await page.waitForTimeout(300);
-const savedTask = await page.evaluate(() => JSON.parse(localStorage.getItem("vd-workspace-v1"))?.state?.project?.tasks.find((t) => t.id === "t_ui_prototype"));
-check(savedTask?.progress === 1 && savedTask?.title === "UI Prototype", "progress saved without changing the original task title");
-await page.screenshot({ path: "scripts/shots/05-task-done.png" });
-
-await browser.close();
-
-console.log("\nconsole errors:", consoleErrors.length ? consoleErrors : "none");
-console.log(failures === 0 ? "\nALL SMOKE CHECKS PASSED" : `\n${failures} CHECKS FAILED`);
-process.exit(failures === 0 ? 0 : 1);
+if (failures) process.exitCode = 1;
+else console.log("ALL WAYLINE CORE LOOP CHECKS PASSED");
