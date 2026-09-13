@@ -57,7 +57,7 @@ export class PilotDeckCaptureProvider implements CaptureProvider {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 50_000);
     try {
-      const res = await fetch("/api/pilotdeck/understand", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/pilotdeck/understand`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
